@@ -1,0 +1,26 @@
+[project]
+name = "advance-rag-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "chromadb==0.5.3",
+    "groq>=0.30.0",
+    "langchain==0.2.7",
+    "langchain-community==0.2.7",
+    "langchain-experimental==0.0.62",
+    "langchain-huggingface==0.0.3",
+    "langchain-openai==0.1.14",
+    "langgraph>=0.4.5",
+    "lark==1.1.9",
+    "llama-index-core>=0.12.49",
+    "llama-index-llms-langchain>=0.6.1",
+    "llama-index-readers-file>=0.4.11",
+    "llama-parse==0.5.11",
+    "mem0ai>=0.1.114",
+    "openai==1.55.3",
+    "python-dotenv==1.0.1",
+    "sentence-transformers==3.0.1",
+    "streamlit>=1.47.0",
+]

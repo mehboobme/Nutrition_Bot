@@ -1,0 +1,32 @@
+main.py
+  ├── services/
+  │     └── bot.py  ← Orchestrates app logic, API, user interactions
+  ├── ui/
+  │     └── ui.py   ← User Interface (Streamlit/other)
+  ├── agents/
+  │     ├── agent_state.py  ← Defines agent state management
+  │     ├── agent_steps.py  ← Defines agent workflow steps
+  │     └── guard.py        ← Safety / content filtering
+  ├── agent_workflow/
+  │     └── workflow.py     ← Workflow orchestration and control logic
+  ├── core/
+  │     ├── config.py       ← Configuration settings
+  │     ├── retriever.py    ← Retrieval logic from vector stores / embeddings
+  │     ├── routing.py      ← Route between workflows/agents based on input
+  │     ├── evaluation.py   ← Evaluation metrics for response quality
+  │     └── refinement.py   ← Response refinement / post-processing
+  ├── pipeline/
+  │     ├── ingest_documents.py  ← Document ingestion and chunking
+  │     ├── build_hypothetical_q_stories.py  ← Hypothetical question/story generation
+  │     └── semantic_chunks.py   ← Semantic chunking of documents
+  ├── retrieval/
+  │     ├── self_query_retriever.py  ← Advanced retrieval techniques with query expansion
+  ├── parsers/
+  │     └── llama_parser.py  ← Parsing LLM outputs to structured data
+  ├── mem0ai/
+  │     └── client.py        ← Memory / conversation state management
+  ├── research_db/
+  │     └── chroma.sqlite3   ← Vector DB or embedded DB for retrieval
+  ├── scripts/
+  │     ├── build_hypothetical_q_stories.py  ← Script usage of pipeline functions
+  │     └── semantic_chunks.py                 ← Possibly script to preprocess data

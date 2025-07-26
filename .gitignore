@@ -1,0 +1,28 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+wheels/
+*.egg-info/
+
+# Virtual environments
+.venv/
+
+venv/
+
+# Logs and environment files
+*.log
+*.env
+*.tmp
+
+# Editor/IDE folders
+.vscode/
+.idea/
+
+# Personal scripts you don’t want in Git
+generate_tree.py
+test.py
