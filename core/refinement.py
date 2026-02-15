@@ -1,12 +1,17 @@
+"""Refinement module for improving RAG responses and queries."""
+import logging
+from typing import Dict, Any
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from typing import Dict, List, Any
-from agents.agent_state import AgentState
-from core.config import llm, endpoint, api_key, embedding_model, llamaparse_api_key, embedding_function
-from core.retriever import multi_retriever
 
-#refine response
-def refine_response(state: Dict) -> Dict:
+from agents.agent_state import AgentState
+from core.config import llm
+
+logger = logging.getLogger(__name__)
+
+
+def refine_response(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     Suggests improvements for the generated response.
 
@@ -14,9 +19,9 @@ def refine_response(state: Dict) -> Dict:
         state (Dict): The current state of the workflow, containing the query and response.
 
     Returns:
-        Dict: The updated state with response refinement suggestions.
+        Updated state with response refinement suggestions.
     """
-    print("---------refine_response---------")
+    logger.info("Refining response based on feedback...")
 
     system_message = '''You are a medical expert assistant specialized in nutritional and metabolic disorders.
 Given a user query and the AI-generated response, suggest clear, specific improvements
@@ -33,14 +38,14 @@ Provide your suggestions as concise bullet points or a short list without rewrit
     chain = refine_response_prompt | llm | StrOutputParser()
 
     # Store response suggestions in a structured format
-    feedback = f"Previous Response: {state['response']}\nSuggestions: {chain.invoke({'query': state['query'], 'response': state['response']})}"
-    print("feedback: ", feedback)
-    print(f"State: {state}")
+    suggestions = chain.invoke({'query': state['query'], 'response': state['response']})
+    feedback = f"Previous Response: {state['response']}\nSuggestions: {suggestions}"
+    logger.debug(f"Response feedback: {feedback[:200]}...")
     state['feedback'] = feedback
     return state
 
-#refine query
-def refine_query(state: Dict) -> Dict:
+
+def refine_query(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     Suggests improvements for the expanded query.
 
@@ -48,9 +53,10 @@ def refine_query(state: Dict) -> Dict:
         state (Dict): The current state of the workflow, containing the query and expanded query.
 
     Returns:
-        Dict: The updated state with query refinement suggestions.
+        Updated state with query refinement suggestions.
     """
-    print("---------refine_query---------")
+    logger.info("Refining query for better retrieval...")
+    
     system_message = '''You are an expert medical research assistant specialized in nutritional disorders.
 Given the original user query and its expanded version, suggest clear and specific improvements
 to make the expanded query more comprehensive and effective for retrieving relevant documents.
@@ -66,8 +72,8 @@ to enhance search recall and precision. Provide concise suggestions without rewr
     chain = refine_query_prompt | llm | StrOutputParser()
 
     # Store refinement suggestions without modifying the original expanded query
-    query_feedback = f"Previous Expanded Query: {state['expanded_query']}\nSuggestions: {chain.invoke({'query': state['query'], 'expanded_query': state['expanded_query']})}"
-    print("query_feedback: ", query_feedback)
-    print(f"Groundedness loop count: {state['groundedness_loop_count']}")
+    suggestions = chain.invoke({'query': state['query'], 'expanded_query': state['expanded_query']})
+    query_feedback = f"Previous Expanded Query: {state['expanded_query']}\nSuggestions: {suggestions}"
+    logger.debug(f"Query feedback: {query_feedback[:200]}...")
     state['query_feedback'] = query_feedback
     return state

@@ -1,34 +1,75 @@
-from typing import Dict, List, Any
-from agents.agent_state import AgentState
+"""Routing logic for the RAG workflow conditional edges."""
+import logging
+from typing import Dict, Any
 
-def should_continue_groundedness(state):
-  """Decides if groundedness is sufficient or needs improvement."""
-  print("---------should_continue_groundedness---------")
-  print("groundedness loop count: ", state['groundedness_loop_count'])
-  if state['groundedness_score'] >=0.7:  # Threshold for groundedness
-      print("Moving to precision")
-      return "check_precision"
-  else:
-      if state['groundedness_loop_count'] >=3:
+from agents.agent_state import AgentState
+from core.config import get_config
+
+logger = logging.getLogger(__name__)
+config = get_config()
+
+
+def should_continue_groundedness(state: Dict[str, Any]) -> str:
+    """
+    Decide if groundedness is sufficient or needs improvement.
+    
+    Args:
+        state: Current workflow state
+        
+    Returns:
+        Next node name: 'check_precision', 'refine_response', or 'max_iterations_reached'
+    """
+    groundedness_score = state['groundedness_score']
+    loop_count = state['groundedness_loop_count']
+    threshold = config.groundedness_threshold
+    max_iterations = config.max_refinement_iterations
+    
+    logger.debug(f"Groundedness check: score={groundedness_score:.2f}, threshold={threshold}, iteration={loop_count}")
+    
+    if groundedness_score >= threshold:
+        logger.info(f"Groundedness passed ({groundedness_score:.2f} >= {threshold}), proceeding to precision check")
+        return "check_precision"
+    elif loop_count >= max_iterations:
+        logger.warning(f"Max groundedness iterations reached ({loop_count})")
         return "max_iterations_reached"
-      else:
-        print(f"---------Groundedness Score Threshold Not met. Refining Response-----------")
+    else:
+        logger.info(f"Groundedness below threshold ({groundedness_score:.2f} < {threshold}), refining response")
         return "refine_response"
 
-def should_continue_precision(state: Dict) -> str:
-    """Decides if precision is sufficient or needs improvement."""
-    print("---------should_continue_precision---------")
-    print("precision loop count: ", state['precision_loop_count'])
-    if state['precision_score'] >=0.7:  # Threshold for precision
-        return "pass"  # Complete the workflow
+
+def should_continue_precision(state: Dict[str, Any]) -> str:
+    """
+    Decide if precision is sufficient or needs improvement.
+    
+    Args:
+        state: Current workflow state
+        
+    Returns:
+        Next node name: 'pass', 'refine_query', or 'max_iterations_reached'
+    """
+    precision_score = state['precision_score']
+    loop_count = state['precision_loop_count']
+    threshold = config.precision_threshold
+    max_iterations = config.max_refinement_iterations
+    
+    logger.debug(f"Precision check: score={precision_score:.2f}, threshold={threshold}, iteration={loop_count}")
+    
+    if precision_score >= threshold:
+        logger.info(f"Precision passed ({precision_score:.2f} >= {threshold}), workflow complete")
+        return "pass"
+    elif loop_count > max_iterations:
+        logger.warning(f"Max precision iterations reached ({loop_count})")
+        return "max_iterations_reached"
     else:
-        if state['precision_loop_count'] >3:  # Maximum allowed loops
-            return "max_iterations_reached"
-        else:
-            print(f"---------Precision Score Threshold Not met. Refining Query-----------")  # Debugging
-            return "refine_query"  # Refine the query
+        logger.info(f"Precision below threshold ({precision_score:.2f} < {threshold}), refining query")
+        return "refine_query"
+
 
 def max_iterations_reached(state: AgentState) -> AgentState:
-    """Handles the case where max iterations are reached."""
-    state['response'] = "We need more context to provide an accurate answer."
+    """Handle the case where max iterations are reached."""
+    logger.warning("Max iterations reached - returning fallback response")
+    state['response'] = (
+        "I apologize, but I need more context to provide an accurate answer. "
+        "Could you please provide more details or rephrase your question?"
+    )
     return state

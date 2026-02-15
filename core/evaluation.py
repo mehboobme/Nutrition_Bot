@@ -1,22 +1,55 @@
+"""Evaluation module for scoring RAG responses on groundedness and precision."""
+import re
+import logging
+from typing import Dict, Any
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from agents.agent_state import AgentState
 
-from typing import Dict, List, Any
-from core.config import llm, endpoint, api_key, embedding_model, llamaparse_api_key, embedding_function
-from core.retriever import multi_retriever
-#check groundedness
-def score_groundedness(state: Dict) -> Dict:
+from agents.agent_state import AgentState
+from core.config import llm
+
+logger = logging.getLogger(__name__)
+
+
+def _parse_score(response: str) -> float:
     """
-    Checks whether the response is grounded in the retrieved context.
+    Safely parse a score from LLM response.
+    
+    Args:
+        response: Raw response string from LLM
+        
+    Returns:
+        Float score between 0.0 and 1.0
+    """
+    try:
+        # Try direct float conversion
+        score = float(response.strip())
+    except ValueError:
+        # Extract first decimal number from response
+        match = re.search(r'(\d+\.?\d*)', response)
+        if match:
+            score = float(match.group(1))
+        else:
+            logger.warning(f"Could not parse score from: {response}, defaulting to 0.5")
+            score = 0.5
+    
+    # Clamp to valid range
+    return max(0.0, min(1.0, score))
+
+
+def score_groundedness(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Check whether the response is grounded in the retrieved context.
 
     Args:
-        state (Dict): The current state of the workflow, containing the response and context.
+        state: Current workflow state containing response and context.
 
     Returns:
-        Dict: The updated state with the groundedness score.
+        Updated state with groundedness score.
     """
-    print("---------check_groundedness---------")
+    logger.info("Evaluating groundedness...")
+    
     system_message = '''You are an expert evaluator tasked with scoring the groundedness of a response.
 Given a response and the context from which it was generated, score how well the response is supported by the context on a scale from 0.0 to 1.0.
 - A score of 1.0 means the response is fully grounded and directly supported by the context.
@@ -30,29 +63,36 @@ Return only the score as a float between 0.0 and 1.0 — no explanations.'''
     ])
 
     chain = groundedness_prompt | llm | StrOutputParser()
-    groundedness_score = float(chain.invoke({
-        "context": "\n".join([doc["content"] for doc in state['context']]),
-        "response": state['response'] #
-    }))
-    print("groundedness_score: ", groundedness_score)
+    
+    context_text = "\n".join([doc["content"] for doc in state['context']])
+    response_text = str(state['response'])
+    
+    raw_score = chain.invoke({
+        "context": context_text,
+        "response": response_text
+    })
+    
+    groundedness_score = _parse_score(raw_score)
+    
     state['groundedness_loop_count'] += 1
-    print("#########Groundedness Incremented###########")
     state['groundedness_score'] = groundedness_score
-
+    
+    logger.info(f"Groundedness score: {groundedness_score:.2f} (iteration {state['groundedness_loop_count']})")
     return state
 
-#check precision
-def check_precision(state: Dict) -> Dict:
+
+def check_precision(state: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Checks whether the response precisely addresses the user’s query.
+    Check whether the response precisely addresses the user's query.
 
     Args:
-        state (Dict): The current state of the workflow, containing the query and response.
+        state: Current workflow state containing query and response.
 
     Returns:
-        Dict: The updated state with the precision score.
+        Updated state with precision score.
     """
-    print("---------check_precision---------")
+    logger.info("Evaluating precision...")
+    
     system_message = '''You are a precise evaluator. Given a user query and a response, score how accurately and directly the response addresses the query.
 Ignore any irrelevant information and focus only on whether the response answers the query fully and clearly.
 Score precision on a scale from 0.0 (not at all precise) to 1.0 (perfectly precise).
@@ -64,12 +104,16 @@ Return only a single float value with no explanation.'''
     ])
 
     chain = precision_prompt | llm | StrOutputParser()
-    precision_score = float(chain.invoke({
+    
+    raw_score = chain.invoke({
         "query": state['query'],
-        "response": state['response']
-    }))
+        "response": str(state['response'])
+    })
+    
+    precision_score = _parse_score(raw_score)
+    
     state['precision_score'] = precision_score
-    print("precision_score:", precision_score)
     state['precision_loop_count'] += 1
-    print("#########Precision Incremented###########")
+    
+    logger.info(f"Precision score: {precision_score:.2f} (iteration {state['precision_loop_count']})")
     return state

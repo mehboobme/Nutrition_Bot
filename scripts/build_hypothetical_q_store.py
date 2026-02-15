@@ -134,14 +134,15 @@ def get_text_vectorstore():
 
 # Then: add documents in batches
 batch_size = 100
+text_store = get_text_vectorstore()
 for i in range(0, len(documents), batch_size):
     batch = documents[i:i + batch_size]
     try:
-        get_text_vectorstore.add_documents(batch)
-        print(f"Stored batch {i//batch_size + 1}")
+        text_store.add_documents(batch)
+        print(f"Stored text batch {i//batch_size + 1}")
     except Exception as e:
-        print(f"Failed batch {i//batch_size + 1}: {e}")
-get_text_vectorstore().persist()
+        print(f"Failed text batch {i//batch_size + 1}: {e}")
+text_store.persist()
 
 # Assign unique IDs to hypothetical questions for tables and store them in the Chroma vector database in batches.
 
@@ -160,13 +161,13 @@ def get_table_vectorstore():
 
 # Then add batches
 batch_size = 100
+table_store = get_table_vectorstore()
 for i in range(0, len(table_documents), batch_size):
     batch = table_documents[i: i + batch_size]
     try:
-        get_table_vectorstore.add_documents(batch)
-
-        print(f"Stored batch {i//batch_size + 1}")
+        table_store.add_documents(batch)
+        print(f"Stored table batch {i//batch_size + 1}")
     except Exception as e:
-        print(f"Failed batch {i//batch_size + 1}: {e}")
+        print(f"Failed table batch {i//batch_size + 1}: {e}")
 # Persist once after all documents are added
-get_table_vectorstore().persist()
+table_store.persist()

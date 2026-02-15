@@ -1,7 +1,5 @@
-%%writefile Dockerfile
-
-# Base image with the correct Python version
-FROM python:3.10-slim
+# Base image with Python 3.11
+FROM python:3.11-slim
 
 # Create a non-root user named 'user'
 RUN useradd -m -u 1000 user
@@ -22,7 +20,12 @@ RUN pip install --no-cache-dir --upgrade -r requirements.txt
 # Copy the app code with correct ownership
 COPY --chown=user . /app
 
-# Start Streamlit app on port 7860 (for Spaces compatibility)
-CMD ["streamlit", "run", "app.py", "--server.port=7860", "--server.address=0.0.0.0"]
+# Expose the Streamlit port
+EXPOSE 7860
 
-# Reference: https://huggingface.co/docs/hub/en/spaces-sdks-docker
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:7860/_stcore/health || exit 1
+
+# Start Streamlit app on port 7860 (for Spaces compatibility)
+CMD ["streamlit", "run", "main.py", "--server.port=7860", "--server.address=0.0.0.0", "--server.headless=true"]

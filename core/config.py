@@ -1,58 +1,117 @@
-import os
-from dotenv import load_dotenv
-# Load variables from .env file
-load_dotenv()
+"""
+Configuration module for the Advanced RAG application.
 
-import json
-from langchain.chat_models import ChatOpenAI
-from langchain.embeddings import OpenAIEmbeddings
+Handles environment variables, model initialization, and application settings.
+"""
+import os
+import logging
+from pathlib import Path
+from dataclasses import dataclass, field
+from typing import Optional
+from functools import lru_cache
+
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 import chromadb
 from llama_index.core import Settings
 
-# Define a function to read a JSON config file and return its contents as a dictionary.
-# def read_config(config_file):
-#   """Reads a JSON config file and returns a dictionary."""
-#   with open(config_file, 'r') as f:
-#     return json.load(f)
-  
-# config = read_config("config_GANLP.json")  #Copy and paste the path of the config file uploaded in Colab
-# config2 = read_config("config2_emb_tested.json")
-api_key = os.getenv("OPENAI_API_KEY")
-endpoint = os.getenv("OPENAI_API_BASE")
-embedding_model = os.getenv("EMBEDDING_MODEL", "text-embedding-ada-002")
-llamaparse_api_key = os.getenv("LLAMA_API_KEY")
-MEM0_api_key = os.getenv("MEM0_API_KEY")  
+# Load environment variables
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+# Project root directory
+PROJECT_ROOT = Path(__file__).parent.parent
+
+
+@dataclass
+class AppConfig:
+    """Application configuration with validation."""
+    
+    # API Keys
+    openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
+    openai_api_base: str = field(default_factory=lambda: os.getenv("OPENAI_API_BASE", ""))
+    llama_api_key: str = field(default_factory=lambda: os.getenv("LLAMA_API_KEY", ""))
+    mem0_api_key: str = field(default_factory=lambda: os.getenv("MEM0_API_KEY", ""))
+    groq_api_key: str = field(default_factory=lambda: os.getenv("GROQ_API_KEY", ""))
+    
+    # Model settings
+    chat_model: str = field(default_factory=lambda: os.getenv("CHAT_MODEL", "gpt-4o-mini"))
+    embedding_model_name: str = field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-ada-002"))
+    
+    # RAG settings
+    groundedness_threshold: float = 0.7
+    precision_threshold: float = 0.7
+    max_refinement_iterations: int = 3
+    retrieval_top_k: int = 5
+    
+    # Paths (relative to project root)
+    data_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "data")
+    vector_db_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "research_db")
+    hyp_questions_db_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "hyp_question_db")
+    
+    def validate(self) -> None:
+        """Validate required configuration values."""
+        errors = []
+        
+        if not self.openai_api_key:
+            errors.append("OPENAI_API_KEY is required")
+        if not self.openai_api_base:
+            errors.append("OPENAI_API_BASE is required")
+        if not self.llama_api_key:
+            logger.warning("LLAMA_API_KEY not set - document parsing may fail")
+        if not self.mem0_api_key:
+            logger.warning("MEM0_API_KEY not set - memory features disabled")
+        if not self.groq_api_key:
+            logger.warning("GROQ_API_KEY not set - guardrails disabled")
+            
+        if errors:
+            raise ValueError(f"Configuration errors: {'; '.join(errors)}")
+
+
+@lru_cache(maxsize=1)
+def get_config() -> AppConfig:
+    """Get cached application configuration."""
+    config = AppConfig()
+    config.validate()
+    return config
+
+
+# Initialize configuration
+config = get_config()
+
+# Expose commonly used values for backward compatibility
+api_key = config.openai_api_key
+endpoint = config.openai_api_base
+llamaparse_api_key = config.llama_api_key
+MEM0_api_key = config.mem0_api_key
+
 # Initialize the OpenAI embedding function for Chroma
 embedding_function = chromadb.utils.embedding_functions.OpenAIEmbeddingFunction(
-    api_base=endpoint,  # Fill in the API base URL
-    api_key=api_key,  # Fill in the API key
-    model_name='text-embedding-ada-002'  # Fill in the model name
+    api_base=endpoint,
+    api_key=api_key,
+    model_name=config.embedding_model_name
 )
-# This initializes the OpenAI embedding function for the Chroma vectorstore, using the provided endpoint and API key.
 
-# Initialize the OpenAI Embeddings
+# Initialize the OpenAI Embeddings for LangChain
 embedding_model = OpenAIEmbeddings(
-    openai_api_base=endpoint,  # Fill in the endpoint
-    openai_api_key=api_key,  # Fill in the API key
-    model='text-embedding-ada-002'                 # Fill in the model name
+    openai_api_base=endpoint,
+    openai_api_key=api_key,
+    model=config.embedding_model_name
 )
-# This initializes the OpenAI embeddings model using the specified endpoint, API key, and model name.
 
 # Initialize the Chat OpenAI model
 llm = ChatOpenAI(
-    openai_api_base=endpoint,  # Fill in the endpoint
-    openai_api_key=api_key,  # Fill in the API key
-    model="gpt-4o-mini",  # Fill in the deployment name (e.g., gpt-4o-mini)
-    streaming=True  # Enable streaming for real-time responses
+    openai_api_base=endpoint,
+    openai_api_key=api_key,
+    model=config.chat_model,
+    streaming=True,
+    temperature=0,
+    max_retries=3,
 )
-# This initializes the Chat OpenAI model using the provided endpoint, API key, deployment name.
 
-# set the LLM and embedding model in the LlamaIndex settings.
+# Set the LLM and embedding model in the LlamaIndex settings
 Settings.llm = llm
-Settings.embedding = embedding_model
+Settings.embed_model = embedding_model
 
-if not api_key or not endpoint:
-    raise ValueError("Missing OpenAI API key or endpoint in config_GANLP.json")
-
-if not llamaparse_api_key:
-    raise ValueError("Missing LLAMA_KEY in config2_emb_tested.json")
+logger.info(f"Configuration loaded: model={config.chat_model}, embedding={config.embedding_model_name}")

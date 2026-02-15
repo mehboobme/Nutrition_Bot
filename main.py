@@ -1,17 +1,28 @@
-# main.py
-import traceback
-from ui.ui import nutrition_disorder_streamlit
-from agent_workflow.workflow import create_workflow
+"""Main entry point for the Nutrition Disorder Specialist application."""
+import sys
+import logging
 
-if __name__ == "__main__":
+from core.logging_config import setup_logging
+
+# Setup logging first
+logger = setup_logging(level=logging.INFO)
+
+
+def main():
+    """Run the Streamlit application."""
     try:
-        # Initialize the workflow once and pass it if needed
-        app_workflow = create_workflow().compile()
+        logger.info("Starting Nutrition Disorder Specialist application...")
         
-        # Pass the workflow to Streamlit app if it expects it
+        # Import here to ensure logging is configured first
+        from ui.ui import nutrition_disorder_streamlit
+        
+        # Run the Streamlit app
         nutrition_disorder_streamlit()
         
     except Exception as e:
-        print("Exception caught in main:")
-        traceback.print_exc()
-        raise
+        logger.exception(f"Application error: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
